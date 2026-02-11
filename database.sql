@@ -37,10 +37,17 @@ CREATE TABLE IF NOT EXISTS attendance (
 -- 5. Table: teachers
 CREATE TABLE IF NOT EXISTS teachers (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    nip TEXT NOT NULL UNIQUE,
+    nip TEXT UNIQUE,
     name TEXT NOT NULL,
     role TEXT DEFAULT 'Guru Kelas'
 );
+
+-- FIX: Explicitly drop NOT NULL constraint if it exists to allow optional NIP
+-- This handles cases where the table was created previously with a NOT NULL constraint
+ALTER TABLE teachers ALTER COLUMN nip DROP NOT NULL;
+
+-- Fix existing data: Convert empty strings to NULL to satisfy unique constraint
+UPDATE teachers SET nip = NULL WHERE nip = '';
 
 -- 6. Table: teacher_attendance
 CREATE TABLE IF NOT EXISTS teacher_attendance (
@@ -60,11 +67,23 @@ ALTER TABLE attendance ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teachers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE teacher_attendance ENABLE ROW LEVEL SECURITY;
 
+-- Safer Policy Creation: Drop if exists then create to avoid ERROR 42710
+DROP POLICY IF EXISTS "Allow All Public" ON school_settings;
 CREATE POLICY "Allow All Public" ON school_settings FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow All Public" ON classes;
 CREATE POLICY "Allow All Public" ON classes FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow All Public" ON students;
 CREATE POLICY "Allow All Public" ON students FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow All Public" ON attendance;
 CREATE POLICY "Allow All Public" ON attendance FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow All Public" ON teachers;
 CREATE POLICY "Allow All Public" ON teachers FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow All Public" ON teacher_attendance;
 CREATE POLICY "Allow All Public" ON teacher_attendance FOR ALL USING (true);
 
 -- ==========================================

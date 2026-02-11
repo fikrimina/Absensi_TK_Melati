@@ -17,9 +17,11 @@ const Teachers: React.FC = () => {
         .from('teachers')
         .select('*')
         .order('name', { ascending: true });
+      
+      if (error) throw error;
       if (data) setTeachers(data);
-    } catch (err) {
-      console.error(err);
+    } catch (err: any) {
+      console.error("Fetch Teachers Error:", err.message);
     } finally {
       setLoading(false);
     }
@@ -33,29 +35,47 @@ const Teachers: React.FC = () => {
     const { value: formValues } = await Swal.fire({
       title: 'Tambah Guru Baru',
       html:
-        '<input id="swal-input1" class="swal2-input" placeholder="NIP">' +
-        '<input id="swal-input2" class="swal2-input" placeholder="Nama Lengkap">' +
-        '<input id="swal-input3" class="swal2-input" placeholder="Jabatan/Role (Contoh: Guru Kelas A1)">',
+        '<input id="swal-input1" class="swal2-input" placeholder="NIP (Opsional)">' +
+        '<input id="swal-input2" class="swal2-input" placeholder="Nama Lengkap (Wajib)">' +
+        '<input id="swal-input3" class="swal2-input" placeholder="Jabatan (Contoh: Guru Kelas A1)">',
       focusConfirm: false,
       confirmButtonText: 'Simpan',
       confirmButtonColor: '#0EA5E9',
       showCancelButton: true,
       preConfirm: () => {
-        return {
-          nip: (document.getElementById('swal-input1') as HTMLInputElement).value,
-          name: (document.getElementById('swal-input2') as HTMLInputElement).value,
-          role: (document.getElementById('swal-input3') as HTMLInputElement).value,
-        };
+        const nipRaw = (document.getElementById('swal-input1') as HTMLInputElement).value;
+        const nip = nipRaw.trim();
+        const name = (document.getElementById('swal-input2') as HTMLInputElement).value.trim();
+        const role = (document.getElementById('swal-input3') as HTMLInputElement).value.trim();
+        
+        if (!name) {
+          Swal.showValidationMessage('Nama Lengkap wajib diisi!');
+          return false;
+        }
+        
+        // Ensure empty string is sent as null to satisfy DB unique constraint
+        return { nip: nip === '' ? null : nip, name, role: role || 'Guru Kelas' };
       }
     });
 
-    if (formValues && formValues.name && formValues.nip) {
-      const { error } = await supabase.from('teachers').insert([formValues]);
-      if (error) {
-        Swal.fire('Gagal', error.message, 'error');
-      } else {
-        Swal.fire('Berhasil', 'Guru telah ditambahkan', 'success');
+    if (formValues) {
+      setLoading(true);
+      try {
+        const { error } = await supabase.from('teachers').insert([formValues]);
+        if (error) throw error;
+        
+        await Swal.fire({
+          title: 'Berhasil',
+          text: 'Guru telah ditambahkan',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        });
         fetchTeachers();
+      } catch (error: any) {
+        Swal.fire('Gagal Menyimpan', error.message, 'error');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -64,29 +84,47 @@ const Teachers: React.FC = () => {
     const { value: formValues } = await Swal.fire({
       title: 'Edit Data Guru',
       html:
-        `<input id="swal-input1" class="swal2-input" value="${teacher.nip}" placeholder="NIP">` +
-        `<input id="swal-input2" class="swal2-input" value="${teacher.name}" placeholder="Nama Lengkap">` +
+        `<input id="swal-input1" class="swal2-input" value="${teacher.nip || ''}" placeholder="NIP (Opsional)">` +
+        `<input id="swal-input2" class="swal2-input" value="${teacher.name}" placeholder="Nama Lengkap (Wajib)">` +
         `<input id="swal-input3" class="swal2-input" value="${teacher.role}" placeholder="Jabatan">`,
       focusConfirm: false,
       confirmButtonText: 'Update',
       confirmButtonColor: '#0EA5E9',
       showCancelButton: true,
       preConfirm: () => {
-        return {
-          nip: (document.getElementById('swal-input1') as HTMLInputElement).value,
-          name: (document.getElementById('swal-input2') as HTMLInputElement).value,
-          role: (document.getElementById('swal-input3') as HTMLInputElement).value,
-        };
+        const nipRaw = (document.getElementById('swal-input1') as HTMLInputElement).value;
+        const nip = nipRaw.trim();
+        const name = (document.getElementById('swal-input2') as HTMLInputElement).value.trim();
+        const role = (document.getElementById('swal-input3') as HTMLInputElement).value.trim();
+        
+        if (!name) {
+          Swal.showValidationMessage('Nama Lengkap wajib diisi!');
+          return false;
+        }
+        
+        // Ensure empty string is sent as null to satisfy DB unique constraint
+        return { nip: nip === '' ? null : nip, name, role: role || 'Guru Kelas' };
       }
     });
 
     if (formValues) {
-      const { error } = await supabase.from('teachers').update(formValues).eq('id', teacher.id);
-      if (error) {
-        Swal.fire('Gagal', error.message, 'error');
-      } else {
-        Swal.fire('Berhasil', 'Data guru diperbarui', 'success');
+      setLoading(true);
+      try {
+        const { error } = await supabase.from('teachers').update(formValues).eq('id', teacher.id);
+        if (error) throw error;
+        
+        await Swal.fire({
+          title: 'Berhasil',
+          text: 'Data guru diperbarui',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        });
         fetchTeachers();
+      } catch (error: any) {
+        Swal.fire('Gagal Memperbarui', error.message, 'error');
+      } finally {
+        setLoading(false);
       }
     }
   };
@@ -94,7 +132,7 @@ const Teachers: React.FC = () => {
   const handleDeleteTeacher = async (id: string) => {
     const result = await Swal.fire({
       title: 'Hapus Guru?',
-      text: "Data absensi guru ini juga akan hilang!",
+      text: "Data absensi guru ini juga akan hilang secara permanen!",
       icon: 'warning',
       showCancelButton: true,
       confirmButtonColor: '#F43F5E',
@@ -103,18 +141,24 @@ const Teachers: React.FC = () => {
     });
 
     if (result.isConfirmed) {
-      const { error } = await supabase.from('teachers').delete().eq('id', id);
-      if (error) {
-        Swal.fire('Gagal', error.message, 'error');
-      } else {
+      setLoading(true);
+      try {
+        const { error } = await supabase.from('teachers').delete().eq('id', id);
+        if (error) throw error;
+        
         Swal.fire('Terhapus', 'Data guru telah dihapus', 'success');
         fetchTeachers();
+      } catch (error: any) {
+        Swal.fire('Gagal Menghapus', error.message, 'error');
+      } finally {
+        setLoading(false);
       }
     }
   };
 
   const filteredTeachers = teachers.filter(t => 
-    t.name.toLowerCase().includes(searchTerm.toLowerCase()) || t.nip.includes(searchTerm)
+    t.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    (t.nip || '').includes(searchTerm)
   );
 
   return (
@@ -126,7 +170,8 @@ const Teachers: React.FC = () => {
         </div>
         <button 
           onClick={handleAddTeacher}
-          className="flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 text-white px-6 py-3 rounded-2xl shadow-lg shadow-sky-200 transition-all active:scale-95"
+          disabled={loading}
+          className="flex items-center justify-center gap-2 bg-sky-500 hover:bg-sky-600 disabled:opacity-50 text-white px-6 py-3 rounded-2xl shadow-lg shadow-sky-200 transition-all active:scale-95"
         >
           <Plus size={20} />
           <span className="font-bold">Tambah Guru</span>
@@ -158,14 +203,14 @@ const Teachers: React.FC = () => {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {loading ? (
+              {loading && teachers.length === 0 ? (
                 <tr><td colSpan={4} className="px-6 py-10 text-center text-slate-400">Memuat data...</td></tr>
               ) : filteredTeachers.length === 0 ? (
                 <tr><td colSpan={4} className="px-6 py-10 text-center text-slate-400">Data guru tidak ditemukan.</td></tr>
               ) : (
                 filteredTeachers.map((teacher) => (
                   <tr key={teacher.id} className="hover:bg-sky-50/30 transition-colors">
-                    <td className="px-6 py-5 text-slate-500 font-medium">{teacher.nip}</td>
+                    <td className="px-6 py-5 text-slate-500 font-medium">{teacher.nip || '-'}</td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">
